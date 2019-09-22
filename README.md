@@ -24,6 +24,7 @@ Há também uma interface gráfica rudimentar, que permite que você jogue contr
 ## ToDo
 
 1. Explorar a simetria do tabuleiro para acelerar aprendizagem
-2. Aprender com os erros do oponente: atualizar os parâmetros considerando também o jogo do ponto de vista do adversário.
+2. Aprender com os erros do oponente: atualizar os parâmetros considerando também o jogo do ponto de vista do adversário
 3. Empacotar código do treinamento 
+4. Melhorar performance, paralelizar treinamento
 
