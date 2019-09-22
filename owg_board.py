@@ -70,7 +70,7 @@ class owg:
             self.cur = jogador
         else:
             if self.cur != jogador:
-                raise ValueError("Erro! Não é a vez do jogador {}".format(player))
+                raise ValueError("Erro! Não é a vez do jogador {}".format(jogador))
         
         self.state[i,j] = jogador
         self.__convert_state()
