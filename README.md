@@ -27,4 +27,7 @@ Há também uma interface gráfica rudimentar, que permite que você jogue contr
 2. Aprender com os erros do oponente: atualizar os parâmetros considerando também o jogo do ponto de vista do adversário
 3. Empacotar código do treinamento 
 4. Melhorar performance, paralelizar treinamento
+5. Impĺementar busca em árvore para n-step look ahead
+6. Implementar jogador que considera o empate o sucesso, e qualquer outro resultado um fracasso
+7. Refactor: separar funções de aprendizagem e decisão, melhorar estrutura de herança
 
