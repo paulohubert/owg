@@ -66,7 +66,6 @@ class jb (owg_player) :
             # Joga e armazena o movimento
             self.board.play(1, movimento)
             self.jogo.append((strpos, acao))
-            print(strpos, movimento)
             
             return movimento
         else:
@@ -158,7 +157,6 @@ class miope(owg_player):
             
             if mov is not None:
                 # Existe um movimento vencedor nessa posição. Joga esse movimento.
-                print(strpos, mov)
                 movimento = mov
                 acao = 3*mov[0] + mov[1]
             else:                
