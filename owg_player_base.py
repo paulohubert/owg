@@ -49,6 +49,4 @@ class owg_player:
         Reseta o estado do jogo atual
         '''
         self.board.reset()
-        self.jogo = []
-
-        
+        self.jogo = []        

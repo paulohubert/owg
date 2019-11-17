@@ -12,8 +12,8 @@ class jb (owg_player) :
     Classe jb: é o jogador que não aprende; decide cada movimento aleatoriamente para sempre
     '''
     
-    def __init__(self):
-        self.nome = 'JB'
+    def __init__(self, nome = 'JB'):
+        self.nome = nome
         owg_player.__init__(self)
         
     def __inicializa(self, strpos):
@@ -36,6 +36,15 @@ class jb (owg_player) :
         probs = [1/len(acoes)] * len(acoes)
         self.knowledge[strpos] = (acoes, probs)
     
+    def avalia_posicao(self, strpos):
+        if strpos not in self.knowledge.keys():
+            # Nunca viu essa posição
+            # Inicializa da prior
+            self.__inicializa(strpos)
+
+        # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+        acoes, rew = self.knowledge[strpos]    
+        return acoes, rew
     
     def joga(self, verbose = False):
         '''
@@ -66,12 +75,10 @@ class jb (owg_player) :
             # Joga e armazena o movimento
             self.board.play(1, movimento)
             self.jogo.append((strpos, acao))
-            print(strpos, movimento)
             
             return movimento
         else:
             return None  
-        
 
 
         
@@ -82,9 +89,9 @@ class miope(owg_player):
     ''' 
     Miope: olha se existe algum movimento vencedor na posição atual. Se tiver, joga. Caso contrário, sorteia aleatoriamente
     '''
-    def __init__(self):
+    def __init__(self, nome = 'Míope'):
 
-        self.nome = 'Míope'
+        self.nome = nome
         owg_player.__init__(self)
         
     def __inicializa(self, strpos):
@@ -107,7 +114,15 @@ class miope(owg_player):
         probs = [1/len(acoes)] * len(acoes)
         self.knowledge[strpos] = (acoes, probs)
     
-    
+    def avalia_posicao(self, strpos):
+        if strpos not in self.knowledge.keys():
+            # Nunca viu essa posição
+            # Inicializa da prior
+            self.__inicializa(strpos)
+
+        # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+        acoes, rew = self.knowledge[strpos]    
+        return acoes, rew
         
     def joga(self, verbose = False):
         '''
@@ -158,7 +173,6 @@ class miope(owg_player):
             
             if mov is not None:
                 # Existe um movimento vencedor nessa posição. Joga esse movimento.
-                print(strpos, mov)
                 movimento = mov
                 acao = 3*mov[0] + mov[1]
             else:                
@@ -179,7 +193,116 @@ class miope(owg_player):
             return movimento
         else:
             return None  
-                 
+    
+        
+##############################################################################################
+#    epsilon_edson - implementa a estratégia \epsilon-greedy: joga o movimento que parece    #
+#              ótimo com probabilidade 1 - \epsilon, e joga aleatoriamente com probabilidade #
+#              \epsilon                                                                      #
+##############################################################################################
+class epsilon_edson(owg_player):
+    ''' 
+    epsilon_edson - implementa a estratégia \epsilon-greedy
+    '''
+    def __init__(self, desconto = 1, epsilon = .1, nome = 'Epsilon Edson'):
+        '''
+        @args
+        
+        desconto -- fator de desconto para a recompensa
+        epsilon -- probabilidade de realizar um movimento exploratório
+        '''
+        self.e = epsilon
+        self.nome = nome
+        self.desconto = desconto
+        owg_player.__init__(self)
+        
+    def __inicializa(self, strpos):
+        ''' 
+        Cria o vetor de recompensa para a dada posição
+        '''
+        acoes = [i for i in range(len(strpos)) if strpos[i] == '2']
+        rec = [0] * len(acoes)
+        self.knowledge[strpos] = (acoes, rec)
+
+    def avalia_posicao(self, strpos):
+        if strpos not in self.knowledge.keys():
+            # Nunca viu essa posição
+            # Inicializa da prior
+            self.__inicializa(strpos)
+
+        # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+        acoes,rew = self.knowledge[strpos]    
+        return acoes, rew
+        
+    def joga(self, verbose = False):
+        '''
+        Dada a posição atual do tabuleiro, decide a ação. Aprende com o resultado.
+        '''
+        
+        # Primeiro verifica se jogo está rolando
+        r, _ = self.board.check_result()
+        if r is None:
+            # Está rolando
+            
+            # Recupera a string que representa a posição atual
+            strpos = self.board.sstate
+            
+            if verbose:
+                print(strpos)
+            if strpos not in self.knowledge.keys():
+                # Nunca viu essa posição
+                self.__inicializa(strpos)
+
+            # Recupera as ações possíveis e as recompensas estimadas
+            acoes, rec = self.knowledge[strpos]
+            
+            # Decide se vai explorar ou exploitar
+            u = np.random.uniform()
+            if u < self.e:
+                # Explora: sorteia ação uniformemente
+                acao = np.random.choice(a = acoes)
+            else:
+                # Exploita: ação com máxima recompensa estimada
+                acao = acoes[np.argmax(rec)]
+            
+            # Constrói a dupla que define a ação
+            movimento = (int(acao / 3), acao % 3)
+
+            # Joga e armazena
+            self.board.play(1, movimento)
+            self.jogo.append((strpos, acao))
+            
+            # Verifica se ganhou o jogo
+            r, _ = self.board.check_result()
+            if r is not None:
+                if r == 1:
+                    # Ganhei!
+                    # Distribui as recompensas, i.e., soma 1 aos alfas correspondentes a cada movimento
+                    # utilizado na partida
+                    n = len(self.jogo)
+                    for i in range(n):
+                        pos = self.jogo[i][0]
+                        acao = self.jogo[i][1]
+                        a, r = self.knowledge[pos]
+                        r[a.index(acao)] += 1*self.desconto**(n-i)
+                        self.knowledge[pos] = (a, r)
+
+            return movimento
+        else:
+            if r == -1:
+                # Perdi :-/
+                # Distribui os castigos, i.e., soma 1 aos betas correspondentes a cada movimento
+                # utilizado na partida
+                n = len(self.jogo)
+                for i in range(n):
+                    pos = self.jogo[i][0]
+                    acao = self.jogo[i][1]
+                    a, r = self.knowledge[pos]
+                    r[a.index(acao)] -= 1*self.desconto**(n-i)
+                    self.knowledge[pos] = (a, r)
+                    
+            return None    
+                      
         
 #############################################################################################
 #    Cientista sovina - usa o modelo probabilístico mas é ganancioso para escolher a ação   #
@@ -189,7 +312,7 @@ class cientista_sovina(owg_player):
     Cientista sovina: usa o modelo probabilístico para aprender e atualizar as probabilidades, mas 
     é ganacioso na hora de decidir a ação (sempre escolhe a que tem maior probabilidade esperada de sucesso)
     '''
-    def __init__(self, a = 1, b = 1):
+    def __init__(self, a = 1, b = 1, nome = 'Cientista sovina'):
         '''
         @args
         
@@ -197,7 +320,7 @@ class cientista_sovina(owg_player):
         '''
         self.a = a
         self.b = b
-        self.nome = 'Cientista sovina'
+        self.nome = nome
         owg_player.__init__(self)
         
     def __inicializa(self, strpos):
@@ -208,6 +331,17 @@ class cientista_sovina(owg_player):
         alfa = [self.a] * len(acoes)
         beta = [self.b] * len(acoes)
         self.knowledge[strpos] = (acoes, alfa, beta)
+
+    def avalia_posicao(self, strpos):
+        if strpos not in self.knowledge.keys():
+            # Nunca viu essa posição
+            # Inicializa da prior
+            self.__inicializa(strpos)
+
+        # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+        acoes, alfa, beta = self.knowledge[strpos]    
+        rew = [a/(a+b) for a, b in zip(alfa,beta)]
+        return acoes, rew
         
     def joga(self, verbose = False):
         '''
@@ -272,7 +406,7 @@ class cientista_sovina(owg_player):
                     
             return None    
         
-        
+
 ############################################################################################
 #    Cientista cético - usa o modelo probabilístico e equilibra exploração e exploitação   #
 ############################################################################################
@@ -282,7 +416,7 @@ class cientista(owg_player):
         e atualizar as probabilidades.
         Sorteia a ação, conforme probabilidades de sucesso, para equilibrar exploration e exploitation.
     '''
-    def __init__(self, a = 1, b = 1):
+    def __init__(self, a = 1, b = 1, nome = 'Cientista'):
         '''
         @args 
         
@@ -291,7 +425,7 @@ class cientista(owg_player):
         
         self.a = a
         self.b = b
-        self.nome = 'Cientista cético'
+        self.nome = nome
         owg_player.__init__(self)
         
     def __inicializa(self, strpos):
@@ -302,6 +436,17 @@ class cientista(owg_player):
         alfa = [self.a] * len(acoes)
         beta = [self.b] * len(acoes)
         self.knowledge[strpos] = (acoes, alfa, beta)
+
+    def avalia_posicao(self, strpos):
+        if strpos not in self.knowledge.keys():
+            # Nunca viu essa posição
+            # Inicializa da prior
+            self.__inicializa(strpos)
+
+        # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+        acoes, alfa, beta = self.knowledge[strpos]    
+        rew = [a/(a+b) for a, b in zip(alfa,beta)]
+        return acoes, rew
         
     def joga(self, verbose = False):
         '''
@@ -370,7 +515,7 @@ class cientista(owg_player):
                     self.knowledge[pos] = (a, al, be)
                     
             return None        
-        
+                       
         
         
 ###############################################################################################
@@ -383,7 +528,7 @@ class cientista_cauteloso(owg_player):
         e atualizar as probabilidades. Também verifica, a cada lance, se o oponente tem algum movimento vencedor
         Sorteia a ação, conforme probabilidades de sucesso, para equilibrar exploration e exploitation.
     '''
-    def __init__(self, a = 1, b = 1):
+    def __init__(self, a = 1, b = 1, nome = 'Cientista cauteloso'):
         '''
         @args 
         
@@ -392,7 +537,7 @@ class cientista_cauteloso(owg_player):
         
         self.a = a
         self.b = b
-        self.nome = 'Cientista cauteloso'
+        self.nome = nome
         owg_player.__init__(self)
         
     def __inicializa(self, strpos):
@@ -403,6 +548,17 @@ class cientista_cauteloso(owg_player):
         alfa = [self.a] * len(acoes)
         beta = [self.b] * len(acoes)
         self.knowledge[strpos] = (acoes, alfa, beta)
+
+    def avalia_posicao(self, strpos):
+        if strpos not in self.knowledge.keys():
+            # Nunca viu essa posição
+            # Inicializa da prior
+            self.__inicializa(strpos)
+
+        # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+        acoes, alfa, beta = self.knowledge[strpos]    
+        rew = [a/(a+b) for a, b in zip(alfa,beta)]
+        return acoes, rew
         
     def joga(self, verbose = False):
         '''
@@ -502,27 +658,37 @@ class cientista_cauteloso(owg_player):
                     self.knowledge[pos] = (a, al, be)
                     
             return None                
-        
+             
         
 ################################################################################################
 #    Cientista conciliador - usa o modelo probabilístico, equilibra exploração e exploitação   #
 #       e sempre verifica se o oponente tem um movimento vitorioso na próxima jogada           #
+#       Difere dos demais cientistas pois seu objetivo é empatar, e não vencer.                #
 ################################################################################################
 class cientista_conciliador(cientista):
     ''' 
     Cientista conciliador: mesma coisa que o cientista, mas com objetivo de empatar
     '''
-    def __init__(self, a = 1, b = 1):
+    def __init__(self, a = 1, b = 1, nome = 'Cientista conciliador'):
         '''
         @args 
         
         a, b -- números positivos, os parâmetros iniciais para cada priori Beta sobre as probabilidades de sucesso
         '''
         
-        self.nome = 'Cientista conciliador'
-        cientista.__init__(self, a, b)
+        cientista.__init__(self, a, b, nome)
         
-        
+    def avalia_posicao(self, strpos):
+        if strpos not in self.knowledge.keys():
+            # Nunca viu essa posição
+            # Inicializa da prior
+            self.__inicializa(strpos)
+
+        # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+        acoes, alfa, beta = self.knowledge[strpos]    
+        rew = [a/(a+b) for a, b in zip(alfa,beta)]
+        return acoes, rew
+    
     def joga(self, verbose = False):
         '''
         Dada a posição atual do tabuleiro, decide a ação. Aprende com o resultado
@@ -604,4 +770,5 @@ class cientista_conciliador(cientista):
                     be[a.index(acao)] += 1
                     self.knowledge[pos] = (a, al, be)
                     
-            return None                        
+            return None
+                       
