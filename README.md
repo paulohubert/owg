@@ -10,6 +10,16 @@ Disclaimer: Dada a simplicidade do jogo, seria possível construir um robô melh
 
 Número de posições possíveis com pelo menos duas casas livres = $3^7 \times 72 = 157.464$ (número de possibilidades para um tabuleiro com $7$ casas, e $3$ possibilidades por casa - O, X e vazio - vezes o número de maneiras possíveis de escolher as duas casas livres). 
 
+## Conteúdo
+
+*owg_board.py*: classe que implementa o tabuleiro
+*owg_player_base.py*: classe base para os jogadores
+*owg_players.py*: implementação dos jogadores
+*oldwomansgame.ipynb*: notebook que ilustra o uso das classes
+*cientista_1MM.pkl*: objeto da classe *cientista* pré-treinado contra si mesmo por 1.000.000 de jogos
+*cientista_cauteloso_1MM.pkl*: objeto da classe *cientista_cauteloso* pré-treinado contra si mesmo por 1.000.000 de jogos
+*epsilon_edson_1MM.pkl*: objeto da classe *epsilon_edson* pré-treinado contra si mesmo por 1.000.000 de jogos
+
 ## Métodos
 
 O código implementa seis algoritmos de aprendizagem para o jogo da velha:
