@@ -408,7 +408,7 @@ class cientista_sovina(owg_player):
         
 
 ############################################################################################
-#    Cientista cético - usa o modelo probabilístico e equilibra exploração e exploitação   #
+#    Cientista        - usa o modelo probabilístico e equilibra exploração e exploitação   #
 ############################################################################################
 class cientista(owg_player):
     ''' 
@@ -772,3 +772,147 @@ class cientista_conciliador(cientista):
                     
             return None
                        
+            
+            
+###############################################################################################
+#    Cientista esperto - usa o modelo probabilístico, equilibra exploração e exploitação,     #
+#      sempre verifica se o oponente tem um movimento vitorioso na próxima jogada, e          #
+#      aplica a recompensa para a posição inversa (i.e. aprende com os erros do oponente      #
+###############################################################################################
+class cientista_esperto(owg_player):
+    ''' 
+    Cientista cauteloso: usa o modelo probabilístico beta-binomial e o terema de Bayes para aprender 
+        e atualizar as probabilidades. Também verifica, a cada lance, se o oponente tem algum movimento vencedor.
+        Aplica recompensa à posição inversa (i.e. aprende com os erros do oponente.
+        Sorteia a ação, conforme probabilidades de sucesso, para equilibrar exploration e exploitation.
+    '''
+    def __init__(self, a = 1, b = 1, nome = 'Cientista cauteloso'):
+        '''
+        @args 
+        
+        a, b -- números positivos, os parâmetros iniciais para cada priori Beta sobre as probabilidades de sucesso
+        '''
+        
+        self.a = a
+        self.b = b
+        self.nome = nome
+        owg_player.__init__(self)
+        
+    def __inicializa(self, strpos):
+        '''
+        Cria o vetor de probabilidade uniforme para a dada posição, e cria a lista de alfas e betas
+        ''' 
+        acoes = [i for i in range(len(strpos)) if strpos[i] == '2']
+        alfa = [self.a] * len(acoes)
+        beta = [self.b] * len(acoes)
+        self.knowledge[strpos] = (acoes, alfa, beta)
+
+    def avalia_posicao(self, strpos):
+        if strpos not in self.knowledge.keys():
+            # Nunca viu essa posição
+            # Inicializa da prior
+            self.__inicializa(strpos)
+
+        # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+        acoes, alfa, beta = self.knowledge[strpos]    
+        rew = [a/(a+b) for a, b in zip(alfa,beta)]
+        return acoes, rew
+        
+    def joga(self, verbose = False):
+        '''
+        Dada a posição atual do tabuleiro, decide a ação. Aprende com o resultado
+        '''
+
+        # Primeiro verifica se jogo está rolando
+        r, _ = self.board.check_result()
+        if r is None:
+            # Está rolando
+            # Recupera a string que representa a posição
+            strpos = self.board.sstate
+            
+            if verbose:
+                print(strpos)
+            if strpos not in self.knowledge.keys():
+                # Nunca viu essa posição
+                # Inicializa da prior
+                self.__inicializa(strpos)
+
+            # Obtém as ações para aquela posição, e os respectivos parâmetros da Beta
+            acoes, alfa, beta = self.knowledge[strpos]
+            
+            # Verifica se há alguma ação vencedora para si ou para o oponente
+            mov = None
+            for i in range(3):
+                # Verifica linhas 
+                linha = strpos[(3*i):((3*i+3))]
+                if linha in ['121', '020', '112', '002', '211', '200']:
+                    j = linha.find('2')
+                    mov = (i, j)
+                    winner = linha[abs(j-1)]
+                    break
+                # Verifica colunas
+                coluna = strpos[i:i+7:3]
+                if coluna in ['121', '020', '112', '002', '211', '200']:
+                    j = coluna.find('2')
+                    mov = (j, i)
+                    winner = coluna[abs(j-1)]
+                    break
+            # Verifica diagonais
+            diagp = strpos[0:9:4]
+            if diagp in ['121', '020', '112', '002', '211', '200']:
+                j = diagp.find('2')
+                mov = (j, j)
+                winner = diagp[abs(j-1)]
+            diags = strpos[2:7:2]
+            if diags in ['121', '020', '112', '002', '211', '200']:
+                j = diags.find('2')
+                mov = (j, 2-j)
+                winner = diags[abs(j-1)]
+            
+            if mov is not None:
+                # Existe um movimento vencedor nessa posição. Joga esse movimento.
+                movimento = mov
+                acao = 3*mov[0] + mov[1]
+            else:
+                # Sorteia as probabilidades de sucesso da Beta
+                probs = [np.random.beta(a = param[0], b = param[1]) for param in zip(alfa, beta)]
+
+                # Sorteia a ação conforme as probabilidades de sucesso sorteadas no passo anterior
+                acao = acoes[np.argmax(probs)]
+
+                # Constrói o par que representa o movimento
+                movimento = (int(acao / 3), acao % 3)
+
+            # Joga e armazena
+            self.board.play(1, movimento)
+            self.jogo.append((strpos, acao))
+            
+            # Verifica se ganhou o jogo
+            r, _ = self.board.check_result()
+            if r is not None:
+                # Terminou o jogo
+                if r == 1:
+                    # Ganhei!
+                    # Distribui as recompensas, i.e., soma 1 no alfa correspondente a cada movimento
+                    # executado na partida
+                    for i in range(len(self.jogo)):
+                        pos = self.jogo[i][0]
+                        acao = self.jogo[i][1]
+                        a, al, be = self.knowledge[pos]
+                        al[a.index(acao)] += 1
+                        self.knowledge[pos] = (a, al, be)
+
+            return movimento
+        else:
+            if r == -1:
+                # Perdi :-/
+                # Distribui os castigos, i.e., soma 1 no beta correspondente a cada movimento
+                # executado na partida
+                for i in range(len(self.jogo)):
+                    pos = self.jogo[i][0]
+                    acao = self.jogo[i][1]
+                    a, al, be = self.knowledge[pos]
+                    be[a.index(acao)] += 1
+                    self.knowledge[pos] = (a, al, be)
+                    
+            return None  
