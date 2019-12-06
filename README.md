@@ -8,8 +8,6 @@ O objetivo é ilustrar os conceitos de aprendizagem por reforço num contexto si
 
 Disclaimer: Dada a simplicidade do jogo, seria possível construir um robô melhor ou igual com menos carga computacional. Mesmo este robô usando RL pode ser melhorado. Ao final deste documento aponto algumas possíveis melhorias.
 
-Número de posições possíveis com pelo menos duas casas livres = $3^7 \times 72 = 157.464$ (número de possibilidades para um tabuleiro com $7$ casas, e $3$ possibilidades por casa - O, X e vazio - vezes o número de maneiras possíveis de escolher as duas casas livres). 
-
 ## Conteúdo
 
 *owg_board.py*: classe que implementa o tabuleiro
